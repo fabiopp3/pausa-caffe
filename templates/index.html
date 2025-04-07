@@ -28,7 +28,7 @@
                     <strong>{{ a.user.nickname }}</strong> sarà a <strong>{{ a.bar.name }}</strong>
                     il {{ a.date }} dalle {{ a.start_time }} alle {{ a.end_time }}
                     {% if a.user.nickname == nickname %}
-                        <form method="post" action="/{{ group }}/delete" style="display:inline;">
+                        <form method="post" action="/{{ group }}/delete">
                             <input type="hidden" name="avail_id" value="{{ a.id }}">
                             <button type="submit">🗑</button>
                         </form>
