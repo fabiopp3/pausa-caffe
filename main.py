@@ -91,17 +91,24 @@ async def register(response: Response, nickname: str = Form(...), password: str 
     if not group:
         session.close()
         return HTMLResponse("Gruppo non trovato.", status_code=404)
+
     existing = session.query(User).filter_by(nickname=nickname, group_id=group.id).first()
     if existing:
         session.close()
         return HTMLResponse("Nickname già registrato.", status_code=400)
+
     user = User(nickname=nickname, hashed_password=hash_password(password), group_id=group.id)
     session.add(user)
     session.commit()
+
+    # Salvo il nome del gruppo PRIMA di chiudere la sessione
+    group_name_value = group.name
     session.close()
-    response = RedirectResponse(url=f"/{group.name}", status_code=303)
+
+    response = RedirectResponse(url=f"/{group_name_value}", status_code=303)
     response.set_cookie("nickname", nickname)
     return response
+
 
 @app.get("/login", response_class=HTMLResponse)
 async def show_login(request: Request):
@@ -114,14 +121,19 @@ async def login(response: Response, nickname: str = Form(...), password: str = F
     if not group:
         session.close()
         return HTMLResponse("Gruppo non trovato.", status_code=404)
+
     user = session.query(User).filter_by(nickname=nickname, group_id=group.id).first()
     if not user or not verify_password(password, user.hashed_password):
         session.close()
         return HTMLResponse("Credenziali non valide.", status_code=401)
+
+    group_name_value = group.name
     session.close()
-    response = RedirectResponse(url=f"/{group_name}", status_code=303)
+
+    response = RedirectResponse(url=f"/{group_name_value}", status_code=303)
     response.set_cookie("nickname", value=nickname)
     return response
+
 
 @app.get("/logout")
 async def logout():
