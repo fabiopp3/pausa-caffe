@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Crea un nuovo gruppo</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>➕ Crea un nuovo gruppo</h1>
+        <form method="post" action="/crea-gruppo">
+            <input type="text" name="nome_gruppo" placeholder="Nome del gruppo" required>
+            <input type="text" name="bar1" placeholder="Nome bar 1" required>
+            <input type="text" name="bar2" placeholder="Nome bar 2" required>
+            <input type="text" name="bar3" placeholder="Nome bar 3" required>
+            <button type="submit">Crea</button>
+        </form>
+        <h2>Gruppi esistenti</h2>
+        <ul>
+            {% for gruppo in gruppi %}
+                <li><a href="/{{ gruppo.name }}">{{ gruppo.name }}</a></li>
+            {% endfor %}
+        </ul>
+        <p><a href="/">🏠 Torna alla homepage</a></p>
+    </div>
+</body>
+</html>
