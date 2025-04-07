@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, Response, Cookie
+from fastapi import FastAPI, Request, Form, Response, Cookie, Path
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -25,16 +25,27 @@ SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
 # Modelli DB
+class Group(Base):
+    __tablename__ = "groups"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)
+    users = relationship("User", back_populates="group")
+    bars = relationship("Bar", back_populates="group")
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    nickname = Column(String, unique=True)
+    nickname = Column(String)
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    group = relationship("Group", back_populates="users")
     availabilities = relationship("Availability", back_populates="user")
 
 class Bar(Base):
     __tablename__ = "bars"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True)
+    name = Column(String)
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    group = relationship("Group", back_populates="bars")
     availabilities = relationship("Availability", back_populates="bar")
 
 class Availability(Base):
@@ -50,25 +61,68 @@ class Availability(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# Inizializza bar se non esistono
-def init_bars():
+# Homepage: elenco gruppi
+@app.get("/", response_class=HTMLResponse)
+async def homepage(request: Request):
     session = SessionLocal()
-    existing = session.query(Bar).count()
-    if existing == 0:
+    gruppi = session.query(Group).order_by(Group.name).all()
+    session.close()
+    return templates.TemplateResponse("homepage.html", {"request": request, "gruppi": gruppi})
+
+# Rotta per creare gruppo
+@app.get("/crea-gruppo", response_class=HTMLResponse)
+async def crea_gruppo_form(request: Request):
+    session = SessionLocal()
+    gruppi = session.query(Group).all()
+    session.close()
+    return templates.TemplateResponse("create_group.html", {"request": request, "gruppi": gruppi})
+
+@app.post("/crea-gruppo", response_class=HTMLResponse)
+async def crea_gruppo(request: Request, nome_gruppo: str = Form(...), bar1: str = Form(...), bar2: str = Form(...), bar3: str = Form(...)):
+    session = SessionLocal()
+    existing = session.query(Group).filter_by(name=nome_gruppo).first()
+    if existing:
+        session.close()
+        return HTMLResponse("Questo gruppo esiste già.", status_code=400)
+    group = Group(name=nome_gruppo)
+    session.add(group)
+    session.commit()
+    session.add_all([
+        Bar(name=bar1, group_id=group.id),
+        Bar(name=bar2, group_id=group.id),
+        Bar(name=bar3, group_id=group.id),
+    ])
+    session.commit()
+    session.close()
+    return HTMLResponse(f"Gruppo '{nome_gruppo}' creato con successo! Vai a <a href='/{nome_gruppo}'>/{nome_gruppo}</a>")
+
+# Inizializza gruppo e bar se non esistono
+def init_group_and_bars():
+    session = SessionLocal()
+    group = session.query(Group).filter_by(name="default").first()
+    if not group:
+        group = Group(name="default")
+        session.add(group)
+        session.commit()
         bars = ["Fuori Orario", "Caffè degli artisti", "Amemì"]
         for name in bars:
-            session.add(Bar(name=name))
+            session.add(Bar(name=name, group_id=group.id))
         session.commit()
     session.close()
 
-init_bars()
+init_group_and_bars()
 
-# Rotte
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request, nickname: str = Cookie(default="")):
+# Rotte principali
+@app.get("/{group_name}", response_class=HTMLResponse)
+async def index(request: Request, group_name: str = Path(...), nickname: str = Cookie(default="")):
     session = SessionLocal()
-    bars = session.query(Bar).all()
+    group = session.query(Group).filter_by(name=group_name).first()
+    if not group:
+        session.close()
+        return HTMLResponse(f"Gruppo '{group_name}' non trovato", status_code=404)
+    bars = session.query(Bar).filter_by(group_id=group.id).all()
     availabilities = session.query(Availability)\
+        .join(User).filter(User.group_id == group.id)\
         .options(joinedload(Availability.user), joinedload(Availability.bar))\
         .order_by(Availability.date, Availability.start_time).all()
     session.close()
@@ -78,15 +132,20 @@ async def index(request: Request, nickname: str = Cookie(default="")):
         "bars": bars,
         "availabilities": availabilities,
         "nickname": nickname,
-        "date": today.strftime("%Y-%m-%d")
+        "date": today.strftime("%Y-%m-%d"),
+        "group": group_name
     })
 
-@app.post("/submit")
-async def submit(response: Response, nickname: str = Form(...), bar_id: int = Form(...), start: str = Form(...), end: str = Form(...), date_input: str = Form(...)):
+@app.post("/{group_name}/submit")
+async def submit(group_name: str, response: Response, nickname: str = Form(...), bar_id: int = Form(...), start: str = Form(...), end: str = Form(...), date_input: str = Form(...)):
     session = SessionLocal()
-    user = session.query(User).filter_by(nickname=nickname).first()
+    group = session.query(Group).filter_by(name=group_name).first()
+    if not group:
+        session.close()
+        return HTMLResponse(f"Gruppo '{group_name}' non trovato", status_code=404)
+    user = session.query(User).filter_by(nickname=nickname, group_id=group.id).first()
     if not user:
-        user = User(nickname=nickname)
+        user = User(nickname=nickname, group_id=group.id)
         session.add(user)
         session.commit()
     availability = Availability(
@@ -99,109 +158,17 @@ async def submit(response: Response, nickname: str = Form(...), bar_id: int = Fo
     session.add(availability)
     session.commit()
     session.close()
-    response = RedirectResponse(url="/", status_code=303)
+    response = RedirectResponse(url=f"/{group_name}", status_code=303)
     response.set_cookie(key="nickname", value=nickname)
     return response
 
-@app.post("/delete")
-async def delete_availability(request: Request, avail_id: int = Form(...)):
+@app.post("/{group_name}/delete")
+async def delete_availability(group_name: str, request: Request, avail_id: int = Form(...)):
     session = SessionLocal()
     availability = session.query(Availability).filter_by(id=avail_id).first()
     if availability:
         session.delete(availability)
         session.commit()
     session.close()
-    referrer = request.headers.get("referer") or "/"
+    referrer = request.headers.get("referer") or f"/{group_name}"
     return RedirectResponse(url=referrer, status_code=303)
-
-# Scrivi index.html aggiornato
-template_html = """
-<!DOCTYPE html>
-<html lang=\"it\">
-<head>
-    <meta charset=\"UTF-8\">
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-    <title>Pausa Caffè</title>
-    <link rel=\"stylesheet\" href=\"/static/styles.css\">
-</head>
-<body>
-    <div class=\"container\">
-        <h1>Pausa Caffè</h1>
-        <form method=\"post\" action=\"/submit\">
-            <label for=\"date\">Scegli una data:</label>
-            <input type=\"date\" name=\"date_input\" value=\"{{ date }}\">
-            <input type=\"text\" name=\"nickname\" placeholder=\"Il tuo nome\" required value=\"{{ nickname }}\">
-            <select name=\"bar_id\">
-                {% for bar in bars %}
-                    <option value=\"{{ bar.id }}\">{{ bar.name }}</option>
-                {% endfor %}
-            </select>
-            <input type=\"time\" name=\"start\" value=\"13:00\">
-            <input type=\"time\" name=\"end\" value=\"14:00\">
-            <button type=\"submit\">Invia</button>
-        </form>
-        <h2>Prossime disponibilità</h2>
-        <ul>
-            {% for a in availabilities %}
-                <li>
-                    <strong>{{ a.user.nickname }}</strong> sarà a <strong>{{ a.bar.name }}</strong> il {{ a.date }} dalle {{ a.start_time }} alle {{ a.end_time }}
-                    {% if a.user.nickname == nickname %}
-                        <form method=\"post\" action=\"/delete\" style=\"display:inline;\">
-                            <input type=\"hidden\" name=\"avail_id\" value=\"{{ a.id }}\">
-                            <button type=\"submit\">🗑</button>
-                        </form>
-                    {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    </div>
-</body>
-</html>
-"""
-with open("templates/index.html", "w", encoding="utf-8") as f:
-    f.write(template_html)
-
-# Scrivi styles.css minimale
-styles_css = """
-body {
-    font-family: sans-serif;
-    background-color: #f6f6f6;
-    margin: 0;
-    padding: 0;
-}
-
-.container {
-    max-width: 600px;
-    margin: 40px auto;
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-input, select, button {
-    padding: 8px;
-    font-size: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-button {
-    background-color: #2e7d32;
-    color: white;
-    cursor: pointer;
-}
-
-button:hover {
-    background-color: #1b5e20;
-}
-"""
-with open("static/styles.css", "w", encoding="utf-8") as f:
-    f.write(styles_css)
