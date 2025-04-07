@@ -108,14 +108,15 @@ async def submit(response: Response, nickname: str = Form(...), bar_id: int = Fo
     return response
 
 @app.post("/delete")
-async def delete_availability(avail_id: int = Form(...)):
+async def delete_availability(request: Request, avail_id: int = Form(...)):
     session = SessionLocal()
     availability = session.query(Availability).filter_by(id=avail_id).first()
     if availability:
         session.delete(availability)
         session.commit()
     session.close()
-    return RedirectResponse(url="/", status_code=303)
+    referrer = request.headers.get("referer") or "/"
+    return RedirectResponse(url=referrer, status_code=303)
 
 # Scrivi index.html minimale
 template_html = """
@@ -146,11 +147,11 @@ template_html = """
             <input type=\"time\" name=\"end\" value=\"14:00\">
             <button type=\"submit\">Salva disponibilità</button>
         </form>
-        <h2>Disponibilità per {{ date }}</h2>
+        <h2>Prossime disponibilità</h2>
         <ul>
             {% for a in availabilities %}
                 <li>
-                    <strong>{{ a.user.nickname }}</strong> sarà a <strong>{{ a.bar.name }}</strong> dalle {{ a.start_time }} alle {{ a.end_time }}
+                    <strong>{{ a.user.nickname }}</strong> sarà a <strong>{{ a.bar.name }}</strong> il {{ a.date }} dalle {{ a.start_time }} alle {{ a.end_time }}
                     {% if a.user.nickname == nickname %}
                         <form method=\"post\" action=\"/delete\" style=\"display:inline;\">
                             <input type=\"hidden\" name=\"avail_id\" value=\"{{ a.id }}\">
