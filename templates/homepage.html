@@ -8,6 +8,11 @@
 <body>
     <div class="container">
         <h1>Benvenuto su Pausa Caffè ☕</h1>
+
+        {% if request.cookies.nickname %}
+            <p>Sei loggato come <strong>{{ request.cookies.nickname }}</strong> — <a href="/logout">Esci</a></p>
+        {% endif %}
+
         <p>Scegli un gruppo per entrare:</p>
         <ul>
             {% for gruppo in gruppi %}
@@ -16,6 +21,7 @@
         </ul>
         <hr>
         <p><a href="/crea-gruppo">➕ Crea un nuovo gruppo</a></p>
+        <p><a href="/login">🔐 Login</a> | <a href="/register">Registrati</a></p>
     </div>
 </body>
 </html>
