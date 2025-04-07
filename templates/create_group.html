@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Crea un nuovo gruppo</title>
+    <title>Crea un gruppo</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -13,14 +13,8 @@
             <input type="text" name="bar1" placeholder="Nome bar 1" required>
             <input type="text" name="bar2" placeholder="Nome bar 2" required>
             <input type="text" name="bar3" placeholder="Nome bar 3" required>
-            <button type="submit">Crea</button>
+            <button type="submit">Crea gruppo</button>
         </form>
-        <h2>Gruppi esistenti</h2>
-        <ul>
-            {% for gruppo in gruppi %}
-                <li><a href="/{{ gruppo.name }}">{{ gruppo.name }}</a></li>
-            {% endfor %}
-        </ul>
         <p><a href="/">🏠 Torna alla homepage</a></p>
     </div>
 </body>
