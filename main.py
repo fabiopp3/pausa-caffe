@@ -130,3 +130,30 @@ async def homepage(request: Request):
     gruppi = session.query(Group).order_by(Group.name).all()
     session.close()
     return templates.TemplateResponse("homepage.html", {"request": request, "gruppi": gruppi})
+
+# Pagina per creare nuovo gruppo
+@app.get("/crea-gruppo", response_class=HTMLResponse)
+async def show_create_group(request: Request):
+    session = SessionLocal()
+    gruppi = session.query(Group).all()
+    session.close()
+    return templates.TemplateResponse("create_group.html", {"request": request, "gruppi": gruppi})
+
+@app.post("/crea-gruppo")
+async def crea_gruppo(request: Request, nome_gruppo: str = Form(...), bar1: str = Form(...), bar2: str = Form(...), bar3: str = Form(...)):
+    session = SessionLocal()
+    existing = session.query(Group).filter_by(name=nome_gruppo).first()
+    if existing:
+        session.close()
+        return HTMLResponse("Questo gruppo esiste già.", status_code=400)
+    group = Group(name=nome_gruppo)
+    session.add(group)
+    session.commit()
+    session.add_all([
+        Bar(name=bar1, group_id=group.id),
+        Bar(name=bar2, group_id=group.id),
+        Bar(name=bar3, group_id=group.id),
+    ])
+    session.commit()
+    session.close()
+    return RedirectResponse(url=f"/{nome_gruppo}", status_code=303)
