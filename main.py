@@ -76,10 +76,7 @@ Base.metadata.create_all(bind=engine)
 # Rotte di autenticazione
 @app.get("/register", response_class=HTMLResponse)
 async def show_register(request: Request):
-    session = SessionLocal()
-    groups = session.query(Group).order_by(Group.name).all()
-    session.close()
-    return templates.TemplateResponse("register.html", {"request": request, "groups": groups})
+    return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/register")
 async def register(response: Response, nickname: str = Form(...), password: str = Form(...), group_name: str = Form(...)):
@@ -102,10 +99,7 @@ async def register(response: Response, nickname: str = Form(...), password: str 
 
 @app.get("/login", response_class=HTMLResponse)
 async def show_login(request: Request):
-    session = SessionLocal()
-    groups = session.query(Group).order_by(Group.name).all()
-    session.close()
-    return templates.TemplateResponse("login.html", {"request": request, "groups": groups})
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
 async def login(response: Response, nickname: str = Form(...), password: str = Form(...), group_name: str = Form(...)):
