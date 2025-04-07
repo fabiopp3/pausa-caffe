@@ -73,6 +73,13 @@ class Availability(Base):
 
 Base.metadata.create_all(bind=engine)
 
+@app.get("/", response_class=HTMLResponse)
+async def homepage(request: Request):
+    session = SessionLocal()
+    gruppi = session.query(Group).order_by(Group.name).all()
+    session.close()
+    return templates.TemplateResponse("homepage.html", {"request": request, "gruppi": gruppi})
+
 @app.get("/register", response_class=HTMLResponse)
 async def show_register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
@@ -121,13 +128,6 @@ async def logout():
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("nickname")
     return response
-
-@app.get("/", response_class=HTMLResponse)
-async def homepage(request: Request):
-    session = SessionLocal()
-    gruppi = session.query(Group).order_by(Group.name).all()
-    session.close()
-    return templates.TemplateResponse("homepage.html", {"request": request, "gruppi": gruppi})
 
 @app.get("/crea-gruppo", response_class=HTMLResponse)
 async def show_create_group(request: Request):
@@ -179,3 +179,46 @@ async def group_page(request: Request, group_name: str, nickname: str = Cookie(d
         "nickname": nickname,
         "date": today.isoformat()
     })
+
+@app.post("/{group_name}/submit")
+async def submit_availability(
+    group_name: str,
+    request: Request,
+    bar_id: int = Form(...),
+    start_time: str = Form(...),
+    end_time: str = Form(...),
+    date_str: str = Form(...),
+    nickname: str = Cookie(default=None)
+):
+    session = SessionLocal()
+    group = session.query(Group).filter_by(name=group_name).first()
+    if not group:
+        session.close()
+        return HTMLResponse("Gruppo non trovato", status_code=404)
+
+    user = session.query(User).filter_by(nickname=nickname, group_id=group.id).first()
+    if not user:
+        session.close()
+        return RedirectResponse(url="/login", status_code=303)
+
+    new_availability = Availability(
+        user_id=user.id,
+        bar_id=bar_id,
+        start_time=datetime.strptime(start_time, "%H:%M").time(),
+        end_time=datetime.strptime(end_time, "%H:%M").time(),
+        date=datetime.strptime(date_str, "%Y-%m-%d").date(),
+    )
+    session.add(new_availability)
+    session.commit()
+    session.close()
+    return RedirectResponse(url=f"/{group_name}", status_code=303)
+
+@app.post("/{group_name}/delete")
+async def delete_availability(group_name: str, avail_id: int = Form(...), nickname: str = Cookie(default=None)):
+    session = SessionLocal()
+    availability = session.query(Availability).filter_by(id=avail_id).first()
+    if availability and availability.user.nickname == nickname:
+        session.delete(availability)
+        session.commit()
+    session.close()
+    return RedirectResponse(url=f"/{group_name}", status_code=303)
