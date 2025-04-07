@@ -68,25 +68,21 @@ init_bars()
 async def index(request: Request, nickname: str = Cookie(default="")):
     session = SessionLocal()
     bars = session.query(Bar).all()
-    selected_date = request.query_params.get("date")
-    if selected_date:
-        filter_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
-    else:
-        filter_date = date.today()
     availabilities = session.query(Availability)\
         .options(joinedload(Availability.user), joinedload(Availability.bar))\
-        .filter_by(date=filter_date).all()
+        .order_by(Availability.date, Availability.start_time).all()
     session.close()
+    today = date.today()
     return templates.TemplateResponse("index.html", {
         "request": request,
         "bars": bars,
         "availabilities": availabilities,
         "nickname": nickname,
-        "date": filter_date.strftime("%Y-%m-%d")
+        "date": today.strftime("%Y-%m-%d")
     })
 
 @app.post("/submit")
-async def submit(response: Response, nickname: str = Form(...), bar_id: int = Form(...), start: str = Form(...), end: str = Form(...)):
+async def submit(response: Response, nickname: str = Form(...), bar_id: int = Form(...), start: str = Form(...), end: str = Form(...), date_input: str = Form(...)):
     session = SessionLocal()
     user = session.query(User).filter_by(nickname=nickname).first()
     if not user:
@@ -98,7 +94,7 @@ async def submit(response: Response, nickname: str = Form(...), bar_id: int = Fo
         bar_id=bar_id,
         start_time=datetime.strptime(start, "%H:%M").time(),
         end_time=datetime.strptime(end, "%H:%M").time(),
-        date=date.today()
+        date=datetime.strptime(date_input, "%Y-%m-%d").date()
     )
     session.add(availability)
     session.commit()
@@ -118,7 +114,7 @@ async def delete_availability(request: Request, avail_id: int = Form(...)):
     referrer = request.headers.get("referer") or "/"
     return RedirectResponse(url=referrer, status_code=303)
 
-# Scrivi index.html minimale
+# Scrivi index.html aggiornato
 template_html = """
 <!DOCTYPE html>
 <html lang=\"it\">
@@ -131,12 +127,9 @@ template_html = """
 <body>
     <div class=\"container\">
         <h1>Pausa Caffè</h1>
-        <form method=\"get\" action=\"/\">
-            <label for=\"date\">Scegli una data:</label>
-            <input type=\"date\" name=\"date\" value=\"{{ date }}\">
-            <button type=\"submit\">Filtra</button>
-        </form>
         <form method=\"post\" action=\"/submit\">
+            <label for=\"date\">Scegli una data:</label>
+            <input type=\"date\" name=\"date_input\" value=\"{{ date }}\">
             <input type=\"text\" name=\"nickname\" placeholder=\"Il tuo nome\" required value=\"{{ nickname }}\">
             <select name=\"bar_id\">
                 {% for bar in bars %}
@@ -145,7 +138,7 @@ template_html = """
             </select>
             <input type=\"time\" name=\"start\" value=\"13:00\">
             <input type=\"time\" name=\"end\" value=\"14:00\">
-            <button type=\"submit\">Salva disponibilità</button>
+            <button type=\"submit\">Invia</button>
         </form>
         <h2>Prossime disponibilità</h2>
         <ul>
