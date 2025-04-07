@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Time, Date, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, joinedload
 from datetime import datetime, date, time
 import os
 
@@ -73,7 +73,9 @@ async def index(request: Request, nickname: str = Cookie(default="")):
         filter_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
     else:
         filter_date = date.today()
-    availabilities = session.query(Availability).filter_by(date=filter_date).all()
+    availabilities = session.query(Availability)\
+        .options(joinedload(Availability.user), joinedload(Availability.bar))\
+        .filter_by(date=filter_date).all()
     session.close()
     return templates.TemplateResponse("index.html", {
         "request": request,
