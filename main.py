@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Form, Response, Cookie, Path
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import create_engine, Column, Integer, String, Time, Date, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Time, Date, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, joinedload
 from passlib.context import CryptContext
@@ -39,6 +39,7 @@ class Group(Base):
     __tablename__ = "groups"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
+    premium = Column(Boolean, default=False)
     users = relationship("User", back_populates="group")
     bars = relationship("Bar", back_populates="group")
 
@@ -119,10 +120,14 @@ async def login(response: Response, nickname: str = Form(...), password: str = F
         return HTMLResponse("Credenziali non valide.", status_code=401)
     session.close()
     response = RedirectResponse(url=f"/{group_name}", status_code=303)
-    response.set_cookie("nickname", nickname)
+    response.set_cookie("nickname", value=nickname)
     return response
 
-# Le rotte esistenti continuano qui sotto...
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie("nickname")
+    return response
 
 # Homepage: elenco gruppi
 @app.get("/", response_class=HTMLResponse)
@@ -131,5 +136,3 @@ async def homepage(request: Request):
     gruppi = session.query(Group).order_by(Group.name).all()
     session.close()
     return templates.TemplateResponse("homepage.html", {"request": request, "gruppi": gruppi})
-
-# ... (resto invariato)
