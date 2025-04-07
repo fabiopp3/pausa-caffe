@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Benvenuto su Pausa Caffè</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Benvenuto su Pausa Caffè ☕</h1>
+        <p>Scegli un gruppo per entrare:</p>
+        <ul>
+            {% for gruppo in gruppi %}
+                <li><a href="/{{ gruppo.name }}">{{ gruppo.name }}</a></li>
+            {% endfor %}
+        </ul>
+        <hr>
+        <p><a href="/crea-gruppo">➕ Crea un nuovo gruppo</a></p>
+    </div>
+</body>
+</html>
