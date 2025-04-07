@@ -2,40 +2,49 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Pausa Caffè - {{ group }}</title>
+    <title>Disponibilità gruppo {{ group }}</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Pausa Caffè - Gruppo {{ group }}</h1>
+        <h1>☕ Prossime disponibilità</h1>
+
+        {% if nickname %}
+            <p>Sei loggato come <strong>{{ nickname }}</strong> — <a href="/logout">Esci</a></p>
+        {% endif %}
+
         <form method="post" action="/{{ group }}/submit">
-            <label for="date_input">Data:</label>
-            <input type="date" name="date_input" value="{{ date }}" required>
-            <input type="text" name="nickname" placeholder="Il tuo nome" required value="{{ nickname }}">
-            <select name="bar_id">
+            <label for="bar_id">Bar</label>
+            <select name="bar_id" required>
                 {% for bar in bars %}
-                    <option value="{{ bar.id }}">{{ bar.name }}</option>
+                <option value="{{ bar.id }}">{{ bar.name }}</option>
                 {% endfor %}
             </select>
-            <input type="time" name="start" value="13:00">
-            <input type="time" name="end" value="14:00">
+            <label for="start_time">Orario inizio</label>
+            <input type="time" name="start_time" required>
+            <label for="end_time">Orario fine</label>
+            <input type="time" name="end_time" required>
+            <label for="date_str">Data</label>
+            <input type="date" name="date_str" value="{{ date }}" required>
             <button type="submit">Invia</button>
         </form>
-        <h2>Prossime disponibilità</h2>
+
         <ul>
-            {% for a in availabilities %}
-                <li>
-                    <strong>{{ a.user.nickname }}</strong> sarà a <strong>{{ a.bar.name }}</strong>
-                    il {{ a.date }} dalle {{ a.start_time }} alle {{ a.end_time }}
-                    {% if a.user.nickname == nickname %}
-                        <form method="post" action="/{{ group }}/delete">
-                            <input type="hidden" name="avail_id" value="{{ a.id }}">
-                            <button type="submit">🗑</button>
-                        </form>
-                    {% endif %}
-                </li>
+            {% for availability in availabilities %}
+            <li>
+                {{ availability.user.nickname }} — {{ availability.bar.name }} —
+                {{ availability.start_time.strftime('%H:%M') }} - {{ availability.end_time.strftime('%H:%M') }} —
+                {{ availability.date.strftime('%Y-%m-%d') }}
+                {% if availability.user.nickname == nickname %}
+                <form method="post" action="/{{ group }}/delete" style="display:inline;">
+                    <input type="hidden" name="avail_id" value="{{ availability.id }}">
+                    <button type="submit">❌</button>
+                </form>
+                {% endif %}
+            </li>
             {% endfor %}
         </ul>
+
         <p><a href="/">🏠 Torna alla homepage</a></p>
     </div>
 </body>
