@@ -2,24 +2,17 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Benvenuto su Pausa Caffè</title>
+    <title>Homepage</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Benvenuto su Pausa Caffè ☕</h1>
-
-        {% if request.cookies.nickname %}
-            <p>Sei loggato come <strong>{{ request.cookies.nickname }}</strong> — <a href="/logout">Esci</a></p>
-        {% endif %}
-
-        <p>Scegli un gruppo per entrare:</p>
+        <h1>📋 Scegli un gruppo</h1>
         <ul>
             {% for gruppo in gruppi %}
-                <li><a href="/{{ gruppo.name }}">{{ gruppo.name }}</a></li>
+            <li><a href="/{{ gruppo.name }}">{{ gruppo.name }}</a></li>
             {% endfor %}
         </ul>
-        <hr>
         <p><a href="/crea-gruppo">➕ Crea un nuovo gruppo</a></p>
         <p><a href="/login">🔐 Login</a> | <a href="/register">Registrati</a></p>
     </div>
